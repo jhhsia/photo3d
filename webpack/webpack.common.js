@@ -6,8 +6,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
 
   entry: {
-    login: Path.resolve(__dirname, '../src/scripts/login.js'),
-    home: Path.resolve(__dirname, '../src/scripts/home.js'),
+  
     photo3d: Path.resolve(__dirname, '../src/scripts/photo3d.js'),
     
   },
@@ -17,6 +16,7 @@ module.exports = {
   },
   plugins: [
     new CleanWebpackPlugin(),
+    /*
     new CopyWebpackPlugin([
       { from: Path.resolve(__dirname, '../public'), to: 'public' }
     ]),
@@ -30,6 +30,7 @@ module.exports = {
       chunks: ['login'],
       filename: 'login.html'
     }),
+    */
     new HtmlWebpackPlugin({
       template: Path.resolve(__dirname, '../src/photo3d.html'),
       chunks: [ 'photo3d'],
@@ -59,7 +60,7 @@ module.exports = {
         }
       },
       {
-        test: /\.(frag|vert)$/i,
+        test: /\.(frag|vert|gltf)$/i,
         use: 'raw-loader'
       },
       {
@@ -68,8 +69,9 @@ module.exports = {
         loader: 'babel-loader',
       },
       {
-        test: /\.json$/,
-        loader: 'json-loader'
+        //IMAGE LOADER
+        test: /\.(jpe?g|png|gif|svg|ico)$/i,
+        loader:'file-loader'
       }
     ]
   }

@@ -35,12 +35,12 @@ module.exports = merge(common, {
         loader: 'babel-loader'
       },
       {
-        test: /\.scss$/,
+        test: /\.s?css$/,
         use: [
           {
             loader: 'file-loader',
             options: {
-              name: 'bundle-[name].css',
+              name: '[name].css',
             },
           },
           { loader: 'extract-loader' },

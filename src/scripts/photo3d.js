@@ -1,4 +1,5 @@
 import '../styles/photo3d.scss';
+import '../assets/gltf/SimpleSkinning.gltf';
 
 import * as THREE from 'three';
 import * as CANNON from 'cannon';
@@ -7,113 +8,107 @@ import { GUI } from '../jsm/libs/dat.gui.module.js';
 import { OrbitControls } from '../jsm/controls/OrbitControls.js';
 import { TeapotBufferGeometry } from '../jsm/geometries/TeapotBufferGeometry.js';
 
-var world, mass, body, shape, timeStep=1/60;
-var meshes=[];
-var physicsBodies=[];
-var camera, scene, renderer, geometry, material, mesh;
-initThree();
-initCannon();
+import { GLTFLoader } from '../jsm/loaders/GLTFLoader.js';
+
+var stats, mixer, camera, scene, renderer, clock;
+
+init();
 animate();
 
-function initCannon() {
-  // Init physics
-  world = new CANNON.World();
-  world.broadphase = new CANNON.NaiveBroadphase();
-  world.gravity.set(0,-10,0);
-  world.solver.tolerance = 0.001;
+function init() {
 
-  // Ground plane
-  var plane = new CANNON.Plane();
-  var groundBody = new CANNON.Body({ mass: 0 });
-  groundBody.addShape(plane);
-  groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0),-Math.PI/2);
-  world.add(groundBody);
+  var container = document.createElement( 'div' );
+  document.body.appendChild( container );
 
-  // Create N cubes
-  var shape = new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5));
-  for(var i=0; i!==20; i++){
-      var body = new CANNON.Body({ mass: 1 });
-      body.addShape(shape);
-      body.position.set(Math.random()-0.5,2.5*i+0.5,Math.random()-0.5);
-      world.add(body);
-      physicsBodies.push(body);
-  }
-}
+  camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
+  camera.position.set( 24, 8, 24 );
 
-
-function initThree() {
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.5, 10000 );
-  camera.position.set(Math.cos( Math.PI/5 ) * 30,
-                      5,
-                      Math.sin( Math.PI/5 ) * 30);
-  camera.rotateX( -Math.PI/15.0 );
-  scene.add( camera );
+  scene.background = new THREE.Color( 0xa0a0a0 );
+  scene.fog = new THREE.Fog( 0xa0a0a0, 70, 100 );
+
+  clock = new THREE.Clock();
+
+  // ground
+
+  var geometry = new THREE.PlaneBufferGeometry( 500, 500 );
+  var material = new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false } );
+
+  var ground = new THREE.Mesh( geometry, material );
+  ground.position.set( 0, - 5, 0 );
+  ground.rotation.x = - Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add( ground );
+
+  var grid = new THREE.GridHelper( 500, 100, 0x000000, 0x000000 );
+  grid.position.y = - 5;
+  grid.material.opacity = 0.2;
+  grid.material.transparent = true;
+  scene.add( grid );
 
   // lights
-  var light, materials;
-  scene.add( new THREE.AmbientLight( 0x666666 ) );
 
-  light = new THREE.DirectionalLight( 0xffffff, 1.75 );
-  var d = 20;
-
-  light.position.set( d, d, d );
-
-  light.castShadow = true;
-  //light.shadowCameraVisible = true;
-
-  light.shadowMapWidth = 1024;
-  light.shadowMapHeight = 1024;
-
-  light.shadowCameraLeft = -d;
-  light.shadowCameraRight = d;
-  light.shadowCameraTop = d;
-  light.shadowCameraBottom = -d;
-
-  light.shadowCameraFar = 3*d;
-  light.shadowCameraNear = d;
-  light.shadowDarkness = 0.5;
-
+  var light = new THREE.HemisphereLight( 0xffffff, 0x444444, 0.6 );
+  light.position.set( 0, 200, 0 );
   scene.add( light );
 
-  let plane_geometry = new THREE.PlaneGeometry( 100, 100, 1, 1 );
-  //geometry.applyMatrix( new THREE.Matrix4().makeRotationX( Math.PI / 2 ) );
-  material = new THREE.MeshLambertMaterial( { color: 0xf77777 } );
-  //THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
-  let ground_plane = new THREE.Mesh( plane_geometry, material );
-  ground_plane.castShadow = false;
-  ground_plane.receiveShadow = true;
+  light = new THREE.DirectionalLight( 0xffffff, 0.8 );
+  light.position.set( 0, 20, 10 );
+  light.castShadow = true;
+  light.shadow.camera.top = 18;
+  light.shadow.camera.bottom = - 10;
+  light.shadow.camera.left = - 12;
+  light.shadow.camera.right = 12;
+  scene.add( light );
 
-  scene.add( ground_plane );
+  //
 
-  var cubeGeo = new THREE.BoxGeometry( 1, 1, 1, 10, 10 );
-  var cubeMaterial = new THREE.MeshPhongMaterial( { color: 0x888888 } );
-  for(var i=0; i<20; i++){
-    let cubeMesh = new THREE.Mesh( cubeGeo, cubeMaterial );
-    cubeMesh.castShadow = true;
-    scene.add( cubeMesh );
-    meshes.push(cubeMesh);
-    cubeMesh.position.set( i*2.0, 0.5, 0.5);
-  }
+  var loader = new GLTFLoader();
+  loader.load( '../src/assets/gltf/SimpleSkinning.gltf', function ( gltf ) {
 
-  renderer = new THREE.WebGLRenderer( { antialias: true } );
+    scene.add( gltf.scene );
+
+    gltf.scene.traverse( function ( child ) {
+
+      if ( child.isSkinnedMesh ) child.castShadow = true;
+
+    } );
+
+    mixer = new THREE.AnimationMixer( gltf.scene );
+    mixer.clipAction( gltf.animations[ 0 ] ).play();
+
+  } );
+
+  //
+
+  renderer = new THREE.WebGLRenderer();
   renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize( window.innerWidth, window.innerHeight );
-  document.body.appendChild( renderer.domElement );
+  renderer.shadowMap.enabled = true;
+  container.appendChild( renderer.domElement );
+
+  //
+
+  var controls = new OrbitControls( camera, renderer.domElement );
+  controls.enablePan = false;
+  controls.minDistance = 5;
+  controls.maxDistance = 50;
+
 }
+
 function animate() {
- requestAnimationFrame( animate );
- updatePhysics();
- render();
-}
-function updatePhysics() {
 
-  //debugger;
- // Step the physics world
- world.step(timeStep);
+  requestAnimationFrame( animate );
 
- // Copy coordinates from Cannon.js to Three.js
+  if ( mixer ) mixer.update( clock.getDelta() );
+
+  render();
+  //stats.update();
+
 }
+
 function render() {
- renderer.render( scene, camera );
+
+  renderer.render( scene, camera );
+
 }
