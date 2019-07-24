@@ -47,6 +47,7 @@ function initThree() {
   camera.position.set(Math.cos( Math.PI/5 ) * 30,
                       5,
                       Math.sin( Math.PI/5 ) * 30);
+  camera.rotateX( -Math.PI/15.0 );
   scene.add( camera );
 
   // lights
@@ -77,7 +78,7 @@ function initThree() {
 
   let plane_geometry = new THREE.PlaneGeometry( 100, 100, 1, 1 );
   //geometry.applyMatrix( new THREE.Matrix4().makeRotationX( Math.PI / 2 ) );
-  material = new THREE.MeshLambertMaterial( { color: 0x777777 } );
+  material = new THREE.MeshLambertMaterial( { color: 0xf77777 } );
   //THREE.ColorUtils.adjustHSV( material.color, 0, 0, 0.9 );
   let ground_plane = new THREE.Mesh( plane_geometry, material );
   ground_plane.castShadow = false;
@@ -92,6 +93,7 @@ function initThree() {
     cubeMesh.castShadow = true;
     scene.add( cubeMesh );
     meshes.push(cubeMesh);
+    cubeMesh.position.set( i*2.0, 0.5, 0.5);
   }
 
   renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -106,15 +108,11 @@ function animate() {
 }
 function updatePhysics() {
 
-  debugger;
+  //debugger;
  // Step the physics world
  world.step(timeStep);
 
  // Copy coordinates from Cannon.js to Three.js
- for(var i = 0; i  <20; i++){
-  meshes[i].position.copy( physicsBodies[i].position );
-  meshes[i].quaternion.copy( physicsBodies[i].quaternion );
- }
 }
 function render() {
  renderer.render( scene, camera );
