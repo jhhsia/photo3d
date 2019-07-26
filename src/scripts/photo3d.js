@@ -5,13 +5,17 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon';
 
 import { GUI } from '../jsm/libs/dat.gui.module.js';
-import { OrbitControls } from '../jsm/controls/OrbitControls.js';
 import { TeapotBufferGeometry } from '../jsm/geometries/TeapotBufferGeometry.js';
 
+import { TrackballControls } from '../jsm/controls/TrackballControls.js';
+import { DragControls } from '../jsm/controls/DragControls.js';
+import {OrthographicTrackballControls} from '../jsm/controls/OrthographicTrackballControls';
+      
 import { GLTFLoader } from '../jsm/loaders/GLTFLoader.js';
 
-var stats, mixer, camera, scene, renderer, clock;
-
+var stats, mixer, camera, scene, renderer, clock, controls;
+var frustumSize;
+var objects;
 init();
 animate();
 
@@ -20,12 +24,16 @@ function init() {
   var container = document.createElement( 'div' );
   document.body.appendChild( container );
 
-  camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
-  camera.position.set( 24, 8, 24 );
-
   scene = new THREE.Scene();
   scene.background = new THREE.Color( 0xa0a0a0 );
   scene.fog = new THREE.Fog( 0xa0a0a0, 70, 100 );
+
+  frustumSize = 100;
+  var aspect = window.innerWidth / window.innerHeight;
+  camera = new THREE.OrthographicCamera( frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, 1, 1000 );
+  camera.updateProjectionMatrix();
+  camera.position.set( 0, 8, 0 );
+  camera.lookAt(scene.position); 
 
   clock = new THREE.Clock();
 
@@ -62,22 +70,17 @@ function init() {
   scene.add( light );
 
   //
-
+  objects = [];
   var loader = new GLTFLoader();
   loader.load( '../src/assets/gltf/SimpleSkinning.gltf', function ( gltf ) {
-
     scene.add( gltf.scene );
-
     gltf.scene.traverse( function ( child ) {
-
       if ( child.isSkinnedMesh ) child.castShadow = true;
-
     } );
-
     mixer = new THREE.AnimationMixer( gltf.scene );
     mixer.clipAction( gltf.animations[ 0 ] ).play();
-
-  } );
+    objects.push(gltf.scene);
+  });
 
   //
 
@@ -89,26 +92,51 @@ function init() {
 
   //
 
-  var controls = new OrbitControls( camera, renderer.domElement );
-  controls.enablePan = false;
-  controls.minDistance = 5;
-  controls.maxDistance = 50;
+
+  controls = new OrthographicTrackballControls( camera, renderer.domElement );
+  controls.noRotate = true;
+  controls.zoomSpeed = 0.01;
+  controls.noPan = true;
+
+  var dragControls = new DragControls( objects, camera, renderer.domElement );
+  dragControls.addEventListener( 'dragstart', function () {
+    controls.enabled = false;
+  } );
+  dragControls.addEventListener( 'dragend', function () {
+    controls.enabled = true;
+  } );
+
+
+  window.addEventListener( 'resize', onWindowResize, false );
+}
+
+function onWindowResize() {
+
+  var aspect = window.innerWidth / window.innerHeight;
+
+  camera.left = - frustumSize * aspect / 2;
+  camera.right = frustumSize * aspect / 2;
+  camera.top = frustumSize / 2;
+  camera.bottom = - frustumSize / 2;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize( window.innerWidth, window.innerHeight );
 
 }
+
 
 function animate() {
 
+  controls.update();
   requestAnimationFrame( animate );
-
   if ( mixer ) mixer.update( clock.getDelta() );
-
   render();
   //stats.update();
-
 }
 
 function render() {
-
+  
   renderer.render( scene, camera );
 
 }
